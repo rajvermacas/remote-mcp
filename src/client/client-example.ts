@@ -7,7 +7,7 @@ import { logger } from '../utils/logger.js';
 // Advanced client implementation showcasing latest MCP patterns
 class AdvancedMcpClient {
   private client: Client;
-  private transport: StdioClientTransport | StreamableHTTPClientTransport | SSEClientTransport;
+  private transport!: StdioClientTransport | StreamableHTTPClientTransport | SSEClientTransport;
 
   constructor(
     private clientName: string = 'advanced-calculator-client',
@@ -81,7 +81,8 @@ class AdvancedMcpClient {
             arguments: operation.args
           });
 
-          const response = JSON.parse(result.content[0].text);
+          const content = (result as any).content[0];
+          const response = JSON.parse(content.text);
           logger.info(`${operation.description} result:`, {
             operation: response.operation,
             inputs: response.inputs,
@@ -108,7 +109,8 @@ class AdvancedMcpClient {
         uri: 'health://status'
       });
 
-      const healthData = JSON.parse(health.contents[0].text);
+      const healthContent = (health as any).contents[0];
+      const healthData = JSON.parse(healthContent.text);
       logger.info('Server health status:', healthData);
 
     } catch (error) {

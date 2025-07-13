@@ -30,9 +30,6 @@ async function main() {
     await server.connect(transport);
     logger.info('MCP Calculator Server started successfully on stdio transport');
     
-    // Optional: Emit server ready event for monitoring systems
-    process.emit('SERVER_READY');
-    
   } catch (error) {
     logger.error('Failed to start MCP Calculator Server', { error });
     process.exit(1);

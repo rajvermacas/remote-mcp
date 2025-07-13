@@ -105,7 +105,7 @@ export function registerCalculatorTools(server: McpServer): void {
         };
       }
     }
-  );  );
+  );
 
   // Multiplication tool with latest SDK patterns
   server.registerTool(
