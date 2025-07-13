@@ -175,3 +175,7 @@ curl -X POST http://localhost:3000/mcp \
 | `sqrt` | Square Root | `value: number (≥0)` | `{value: 16}` → `4` |
 
 This implementation demonstrates cutting-edge MCP server development with TypeScript, incorporating the latest SDK patterns, comprehensive error handling, multiple transport support, and production-ready features.
+
+# Notes
+PORT=9000 npm run start:http
+npx @modelcontextprotocol/inspector - From the host windows machine
