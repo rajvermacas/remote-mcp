@@ -8,7 +8,8 @@
       "Bash(npx:*)",
       "Bash(npm run build:*)",
       "Bash(npm run inspector:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }
