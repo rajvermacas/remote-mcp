@@ -177,5 +177,8 @@ curl -X POST http://localhost:3000/mcp \
 This implementation demonstrates cutting-edge MCP server development with TypeScript, incorporating the latest SDK patterns, comprehensive error handling, multiple transport support, and production-ready features.
 
 # Notes
-PORT=9000 npm run start:http
+## Start mcp inspector
 npx @modelcontextprotocol/inspector - From the host windows machine
+
+## Typescript remote mcp server
+PORT=9000 npm run start:http
