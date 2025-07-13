@@ -1,0 +1,102 @@
+version: '3.8'
+
+# Modern Docker Compose configuration for advanced MCP deployment
+services:
+  mcp-calculator:
+    build:
+      context: .
+      target: production
+      dockerfile: Dockerfile
+    container_name: mcp-calculator-server
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - PORT=3000
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-127.0.0.1,localhost}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+    volumes:
+      - ./logs:/app/logs:rw
+      - mcp-node-modules:/app/node_modules:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - mcp-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Development service with hot reloading
+  mcp-calculator-dev:
+    build:
+      context: .
+      target: development
+      dockerfile: Dockerfile
+    container_name: mcp-calculator-dev
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+    volumes:
+      - .:/app:rw
+      - mcp-node-modules:/app/node_modules:rw
+    profiles:
+      - development
+    networks:
+      - mcp-network
+  # Nginx reverse proxy for production deployments
+  nginx:
+    image: nginx:alpine
+    container_name: mcp-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - mcp-calculator
+    restart: unless-stopped
+    networks:
+      - mcp-network
+    profiles:
+      - production
+
+  # Redis for session storage in scaled deployments
+  redis:
+    image: redis:7-alpine
+    container_name: mcp-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-mcppass}
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - mcp-network
+    profiles:
+      - production
+
+# Named volumes for persistent data
+volumes:
+  mcp-node-modules:
+  redis-data:
+
+# Custom network for service isolation
+networks:
+  mcp-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
