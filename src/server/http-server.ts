@@ -139,22 +139,47 @@ app.all('/mcp', async (req, res) => {
 // Legacy SSE endpoint for backwards compatibility with enhanced features
 app.get('/sse', async (req, res) => {
   try {
+    // CRITICAL FIX: Let SSEServerTransport handle headers internally
+    // Do not manually set headers as it causes "Cannot set headers after they are sent" error
+    
     const transport = new SSEServerTransport('/messages', res);
     sseTransports.set(transport.sessionId, transport);
     
-    // Enhanced session lifecycle management
-    res.on('close', () => {
+    // Enhanced cleanup - handle both client and server disconnection
+    const cleanup = () => {
       sseTransports.delete(transport.sessionId);
-      logger.info('SSE session closed', { sessionId: transport.sessionId });
-    });
+      logger.info('SSE session cleaned up', { sessionId: transport.sessionId });
+    };
+    
+    // Listen to multiple disconnect events
+    req.on('close', cleanup);
+    req.on('aborted', cleanup);
+    res.on('close', cleanup);
+    res.on('finish', cleanup);
+    
+    // Setup transport error handling
+    transport.onerror = (error: Error) => {
+      logger.error('SSE transport error:', { 
+        sessionId: transport.sessionId, 
+        error: error.message 
+      });
+      cleanup();
+    };
+    
+    transport.onclose = () => {
+      logger.info('SSE transport closed', { sessionId: transport.sessionId });
+      cleanup();
+    };
     
     const server = createMcpServer();
     await server.connect(transport);
     
     logger.info('New SSE session created', { sessionId: transport.sessionId });
-  } catch (error) {    logger.error('Error creating SSE connection:', { 
+  } catch (error) {    
+    logger.error('Error creating SSE connection:', { 
       error: error instanceof Error ? error.message : 'Unknown error',
-      userAgent: req.get('User-Agent')
+      userAgent: req.get('User-Agent'),
+      stack: error instanceof Error ? error.stack : undefined
     });
     
     if (!res.headersSent) {
@@ -170,22 +195,32 @@ app.get('/sse', async (req, res) => {
 app.post('/messages', async (req, res) => {
   try {
     const sessionId = req.query.sessionId as string;
+    
+    if (!sessionId) {
+      return res.status(400).json({
+        error: 'sessionId query parameter is required',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
     const transport = sseTransports.get(sessionId);
     
-    if (transport) {
-      await transport.handlePostMessage(req, res);
-    } else {
+    if (!transport) {
       logger.warn('SSE transport not found', { sessionId, availableSessions: Array.from(sseTransports.keys()) });
-      res.status(400).json({
+      return res.status(400).json({
         error: 'No transport found for sessionId',
         sessionId,
         timestamp: new Date().toISOString()
       });
     }
+
+    // CRITICAL FIX: Pass req.body as third parameter to prevent "stream is not readable" error
+    await transport.handlePostMessage(req, res, req.body);
   } catch (error) {
     logger.error('Error handling SSE message:', { 
       error: error instanceof Error ? error.message : 'Unknown error',
-      sessionId: req.query.sessionId 
+      sessionId: req.query.sessionId,
+      stack: error instanceof Error ? error.stack : undefined
     });
     
     if (!res.headersSent) {
